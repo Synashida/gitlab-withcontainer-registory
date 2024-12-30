@@ -1,0 +1,37 @@
+version: '3.6'
+services:
+  web:
+    image: 'gitlab/gitlab-ce:latest'
+    restart: always
+    hostname: 'gitlab.example.com'
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'https://gitlab.example.com:8929'
+        nginx['listen_https'] = true
+        nginx['redirect_http_to_https'] = true
+        nginx['ssl_certificate'] = "/etc/gitlab/ssl/gitlab.example.com.crt"
+        nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/gitlab.example.com.key"
+        registry_external_url 'https://gitlab.example.com:5050'
+        registry_nginx['redirect_http_to_https'] = true
+        registry_nginx['ssl_certificate'] = "/etc/gitlab/ssl/gitlab.example.com.crt"
+        registry_nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/gitlab.example.com.key"
+        gitlab_rails['gitlab_shell_ssh_port'] = 2224
+    ports:
+      - '8929:8929'
+      - "1443:443"
+      - '2224:22'
+      - '5050:5050'
+    volumes:
+      - './srv/config:/etc/gitlab'
+      - './srv/logs:/var/log/gitlab'
+      - './srv/data:/var/opt/gitlab'
+    shm_size: '256m'
+
+  gitlab-runner:
+    image: gitlab/gitlab-runner:alpine
+    #deploy:
+    #  mode: replicated
+    #  replicas: 4
+    volumes:
+      - ./srv/gitlab-runner/config:/etc/gitlab-runner
+      - ./var/run/docker.sock:/var/run/docker.sock
