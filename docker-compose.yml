@@ -1,5 +1,11 @@
 version: '3.6'
+
+volumes:
+  pg_data_python-code-reviewer:
+    driver: local
+
 services:
+
   web:
     image: 'gitlab/gitlab-ce:latest'
     restart: always
@@ -7,25 +13,38 @@ services:
     environment:
       GITLAB_OMNIBUS_CONFIG: |
         external_url 'https://gitlab.example.com:8929'
+        gitlab_rails['time_zone'] = "Asia/Tokyo"
+        gitlab_rails['initial_root_password'] = "password"
+        gitlab_rails['gitlab_shell_ssh_port'] = 2224
         nginx['listen_https'] = true
         nginx['redirect_http_to_https'] = true
         nginx['ssl_certificate'] = "/etc/gitlab/ssl/gitlab.example.com.crt"
         nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/gitlab.example.com.key"
+        nginx['ssl_protocols'] = "TLSv1.1 TLSv1.2"
         registry_external_url 'https://gitlab.example.com:5050'
+        registry_nginx['listen_https'] = true
         registry_nginx['redirect_http_to_https'] = true
         registry_nginx['ssl_certificate'] = "/etc/gitlab/ssl/gitlab.example.com.crt"
         registry_nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/gitlab.example.com.key"
-        gitlab_rails['gitlab_shell_ssh_port'] = 2224
+    secrets:
+      - gitlab_root_password
     ports:
       - '8929:8929'
       - "1443:443"
       - '2224:22'
       - '5050:5050'
     volumes:
-      - './srv/config:/etc/gitlab'
-      - './srv/logs:/var/log/gitlab'
-      - './srv/data:/var/opt/gitlab'
+      - './gitlab/srv/config:/etc/gitlab'
+      - './gitlab/srv/logs:/var/log/gitlab'
+      - './gitlab/srv/data:/var/opt/gitlab'
     shm_size: '256m'
+    logging:
+      options:
+        max-size: "4M"
+        max-file: "14"
+    networks:
+      gitlab_network:
+        ipv4_address: 173.0.0.10
 
   gitlab-runner:
     image: gitlab/gitlab-runner:alpine
@@ -33,5 +52,27 @@ services:
     #  mode: replicated
     #  replicas: 4
     volumes:
-      - ./srv/gitlab-runner/config:/etc/gitlab-runner
-      - ./var/run/docker.sock:/var/run/docker.sock
+      - ./gitlab/srv/gitlab-runner/config:/etc/gitlab-runner
+      - ./gitlab/var/run/docker.sock:/var/run/docker.sock
+      - ./gitlab/srv/config/ssl:/etc/gitlab-runner/certs
+    environment:
+      - CI_SERVER_TLS_VERIFY=false
+    logging:
+      options:
+        max-size: "4M"
+        max-file: "14"
+    networks:
+      gitlab_network:
+        ipv4_address: 173.0.0.11
+
+secrets:
+  gitlab_root_password:
+    file: ./root_password.txt
+
+networks:
+  gitlab_network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 173.0.0.0/24
