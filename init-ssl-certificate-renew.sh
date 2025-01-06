@@ -1,5 +1,9 @@
 #!/bin/bash
 
+#
+# gitlab.example.com.crtとgitlab.example.com.keyをSANs付き証明書に更新する
+#
+
 echo "down docker-compose"
 docker-compose down
 echo "start docker-compose"
